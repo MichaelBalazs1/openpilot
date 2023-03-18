@@ -65,7 +65,7 @@ class LatControlTorque(LatControl):
         actual_curvature = interp(CS.vEgo, [2.0, 5.0], [actual_curvature_vm, actual_curvature_llk])
         curvature_deadzone = 0.0
       desired_lateral_accel = desired_curvature * CS.vEgo ** 2
-      min_planned_curvature_rate = min(list(lat_plan.curvatureRates)[5:12] + [desired_curvature_rate], key=lambda x: abs(x))
+      min_planned_curvature_rate = min(list(lat_plan.curvatureRates)[5:15] + [desired_curvature_rate], key=lambda x: abs(x))
       if sign(min_planned_curvature_rate) != sign(desired_curvature_rate):
         min_planned_curvature_rate = 0.0
       desired_lateral_jerk = min_planned_curvature_rate * CS.vEgo**2
