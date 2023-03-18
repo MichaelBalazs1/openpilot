@@ -18,8 +18,8 @@ from selfdrive.controls.lib.vehicle_model import ACCELERATION_DUE_TO_GRAVITY
 # friction in the steering wheel that needs to be overcome to
 # move it at all, this is compensated for too.
 
-LOW_SPEED_X = [0, 10, 20, 30]
-LOW_SPEED_Y = [225, 169, 100, 25]
+LOW_SPEED_X = [0, 30]
+LOW_SPEED_Y = [100, 25]
 
 def sign(x):
   return 1.0 if x > 0.0 else -1.0
