@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
+from math import fabs
 from cereal import car
 from panda import Panda
 from common.conversions import Conversions as CV
+from common.numpy_fast import interp
 from selfdrive.car.hyundai.values import HyundaiFlags, CAR, DBC, CANFD_CAR, CAMERA_SCC_CAR, CANFD_RADAR_SCC_CAR, EV_CAR, HYBRID_CAR, LEGACY_SAFETY_MODE_CAR, Buttons
 from selfdrive.car.hyundai.radar_interface import RADAR_START_ADDR
 from selfdrive.car import STD_CARGO_KG, create_button_event, scale_tire_stiffness, get_safety_config, create_mads_event
-from selfdrive.car.interfaces import CarInterfaceBase
+from selfdrive.car.interfaces import CarInterfaceBase, TorqueFromLateralAccelCallbackType
 from selfdrive.car.disable_ecu import disable_ecu
 
 Ecu = car.CarParams.Ecu
@@ -16,8 +18,38 @@ ENABLE_BUTTONS = (Buttons.RES_ACCEL, Buttons.SET_DECEL, Buttons.CANCEL)
 BUTTONS_DICT = {Buttons.RES_ACCEL: ButtonType.accelCruise, Buttons.SET_DECEL: ButtonType.decelCruise,
                 Buttons.GAP_DIST: ButtonType.gapAdjustCruise, Buttons.CANCEL: ButtonType.cancel}
 
+FRICTION_THRESHOLD_LAT_JERK = 0.5
 
 class CarInterface(CarInterfaceBase):
+  @staticmethod
+  def torque_from_lateral_accel_sonata2020(lateral_accel_value, torque_params, lateral_accel_error, lateral_accel_deadzone, friction_compensation, v_ego, g_lat_accel, lateral_jerk_desired):
+    ANGLE_COEF = 0.29139357
+    ANGLE_COEF2 = 0.12000000
+    SPEED_OFFSET = -1.58639013
+    SIGMOID_COEF_RIGHT = 0.59999999
+    SPEED_COEF = 1.00000000
+    
+    x = ANGLE_COEF * (lateral_accel_value) * (40.23 / (max(1.0,v_ego + SPEED_OFFSET))**SPEED_COEF)
+    sigmoid = x / (1. + fabs(x))
+    # sigmoid *= (SIGMOID_COEF_RIGHT if (angle + ANGLE_OFFSET) < 0. else SIGMOID_COEF_LEFT)
+    sigmoid *= SIGMOID_COEF_RIGHT
+    linear = ANGLE_COEF2 * (lateral_accel_value)
+    ff = sigmoid + linear
+    
+    friction = interp(
+      lateral_jerk_desired,
+      [-FRICTION_THRESHOLD_LAT_JERK, FRICTION_THRESHOLD_LAT_JERK],
+      [-torque_params.friction, torque_params.friction]
+    )
+    
+    return ff + friction + g_lat_accel * 0.5
+    
+  def torque_from_lateral_accel(self) -> TorqueFromLateralAccelCallbackType:
+    if self.CP.carFingerprint in (CAR.SONATA, CAR.SONATA_HYBRID):
+      return self.torque_from_lateral_accel_sonata2020
+    else:
+      return CarInterfaceBase.torque_from_lateral_accel_linear
+    
   @staticmethod
   def _get_params(ret, candidate, fingerprint, car_fw, experimental_long):
     ret.carName = "hyundai"
@@ -68,6 +100,7 @@ class CarInterface(CarInterfaceBase):
       ret.steerRatio = 16.55  # 13.8 is spec end-to-end
       tire_stiffness_factor = 0.82
     elif candidate in (CAR.SONATA, CAR.SONATA_HYBRID):
+      CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
       ret.mass = 1513. + STD_CARGO_KG
       ret.wheelbase = 2.84
       ret.steerRatio = 13.27 * 1.15   # 15% higher at the center seems reasonable

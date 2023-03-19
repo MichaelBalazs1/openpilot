@@ -24,6 +24,17 @@ LOW_SPEED_Y = [15, 5]
 def sign(x):
   return 1.0 if x > 0.0 else -1.0
 
+def get_lookahead_value(future_vals, current_val):
+  same_sign_vals = [v for v in future_vals if sign(v) == sign(current_val)]
+  
+  # if any future val has opposite sign of current val, return 0
+  if len(same_sign_vals) < len(future_vals):
+    return 0.0
+  
+  # otherwise return the value with minimum absolute value
+  min_val = min(same_sign_vals + [current_val], key=lambda x: abs(x))
+  return min_val
+
 
 class LatControlTorque(LatControl):
   def __init__(self, CP, CI):
@@ -64,10 +75,9 @@ class LatControlTorque(LatControl):
         actual_curvature_llk = llk.angularVelocityCalibrated.value[2] / CS.vEgo
         actual_curvature = interp(CS.vEgo, [2.0, 5.0], [actual_curvature_vm, actual_curvature_llk])
         curvature_deadzone = 0.0
+        
       desired_lateral_accel = desired_curvature * CS.vEgo ** 2
-      min_planned_curvature_rate = min(list(lat_plan.curvatureRates)[5:15] + [desired_curvature_rate], key=lambda x: abs(x))
-      if sign(min_planned_curvature_rate) != sign(desired_curvature_rate):
-        min_planned_curvature_rate = 0.0
+      min_planned_curvature_rate = get_lookahead_value(list(lat_plan.curvatureRates)[5:12], desired_curvature_rate)
       desired_lateral_jerk = min_planned_curvature_rate * CS.vEgo**2
 
       # desired rate is the desired rate of change in the setpoint, not the absolute desired curvature
@@ -76,9 +86,7 @@ class LatControlTorque(LatControl):
       lateral_accel_deadzone = curvature_deadzone * CS.vEgo ** 2
 
       low_speed_factor = interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y)**2
-      lookahead_desired_curvature = min(list(lat_plan.curvatures)[5:10] + [desired_curvature], key=lambda x: abs(x))
-      if sign(lookahead_desired_curvature) != sign(desired_curvature):
-        lookahead_desired_curvature = 0.0
+      lookahead_desired_curvature = get_lookahead_value(list(lat_plan.curvatures)[5:10], desired_curvature)
       setpoint = desired_lateral_accel + low_speed_factor * lookahead_desired_curvature
       measurement = actual_lateral_accel + low_speed_factor * actual_curvature
       error = setpoint - measurement
