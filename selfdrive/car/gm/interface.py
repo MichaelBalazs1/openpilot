@@ -123,21 +123,58 @@ class CarInterface(CarInterfaceBase):
   
   @staticmethod
   def torque_from_lateral_accel_bolt_euv(lateral_accel_value, torque_params, lateral_accel_error, lateral_accel_deadzone, friction_compensation, v_ego, g_lat_accel, lateral_jerk_desired):
-    ANGLE_COEF = 0.79289935
-    ANGLE_COEF2 = 0.24485508
-    SPEED_OFFSET = 1.00000000
-    SIGMOID_COEF_RIGHT = 0.30436939
-    SIGMOID_COEF_LEFT = 0.22542412
-    SPEED_COEF = 0.77320476
+    ANGLE_COEF = 0.08576049
+    ANGLE_COEF2 = 0.09076453
+    ANGLE_OFFSET = 0.00941979
+    SPEED_OFFSET = -1.52185040
+    SIGMOID_COEF_RIGHT = 0.56945047
+    SIGMOID_COEF_LEFT = 0.50000000
+    SPEED_COEF = 0.33101371
+    ff = get_steer_feedforward_erf(lateral_accel_value, v_ego, ANGLE_COEF, ANGLE_COEF2, ANGLE_OFFSET, SPEED_OFFSET, SIGMOID_COEF_RIGHT, SIGMOID_COEF_LEFT, SPEED_COEF)
+    
+    # now lateral jerk component
+    if sign(lateral_accel_value) == sign(lateral_jerk_desired):
+      ANGLE_COEF = 5.00000000
+      ANGLE_COEF2 = 0.02152643
+      ANGLE_OFFSET = 20.77970655
+      SPEED_OFFSET = -1.28362650
+      SIGMOID_COEF_1 = 0.19612168
+      SIGMOID_COEF_2 = 2.00000000
+      SPEED_COEF = 1.47087449
+      SPEED_COEF2 = 1.76494950
 
-    x = ANGLE_COEF * lateral_accel_value * (40.23 / (max(0.2,v_ego + SPEED_OFFSET))**SPEED_COEF)
-    sigmoid = erf(x)
-    ff = ((SIGMOID_COEF_RIGHT if lateral_accel_value < 0. else SIGMOID_COEF_LEFT) * sigmoid) + ANGLE_COEF2 * lateral_accel_value
-    friction = interp(
-      lateral_jerk_desired,
-      [-FRICTION_THRESHOLD_LAT_JERK, FRICTION_THRESHOLD_LAT_JERK],
-      [-torque_params.friction, torque_params.friction]
-    )
+      x = ANGLE_COEF * (lateral_jerk_desired) * (40.23 / (max(1.0,v_ego + SPEED_OFFSET))**SPEED_COEF)
+      sigmoid1 = x / (1. + fabs(x))
+      sigmoid1 *= SIGMOID_COEF_1
+      
+      x = ANGLE_COEF2 * (lateral_jerk_desired) * (40.23 / (max(1.0,v_ego + SPEED_OFFSET))**SPEED_COEF2)
+      sigmoid2 = x / (1. + fabs(x))
+      sigmoid2 *= SIGMOID_COEF_2 / (fabs(v_ego)+1)
+
+      friction = sigmoid1 + sigmoid2
+    else:
+      ANGLE_COEF = 0.08576049
+      ANGLE_COEF2 = 0.09076453
+      ANGLE_OFFSET = 0.00941979
+      SPEED_OFFSET = -1.52185040
+      SIGMOID_COEF_1 = 0.56945047
+      SIGMOID_COEF_2 = 0.50000000
+      SPEED_COEF = 0.33101371
+      SPEED_COEF2 = 0.50000000
+      
+      x = ANGLE_COEF * (lateral_jerk_desired) * (40.23 / (max(1.0,v_ego + SPEED_OFFSET))**SPEED_COEF)
+      sigmoid1 = x / (1. + fabs(x))
+      sigmoid1 *= SIGMOID_COEF_1
+      
+      x = ANGLE_COEF2 * (lateral_jerk_desired) * (40.23 / (max(1.0,v_ego + SPEED_OFFSET))**SPEED_COEF2)
+      sigmoid2 = x / (1. + fabs(x))
+      sigmoid2 *= SIGMOID_COEF_2
+      
+      max_speed = ANGLE_OFFSET
+      speed_norm = 0.5 * cos(clip(v_ego / max_speed, 0., 1.) * 3.14) + 0.5
+      
+      friction = (1-speed_norm) * sigmoid1 + speed_norm * sigmoid2
+    
     return ff + friction + g_lat_accel * 0.5
   
   @staticmethod
