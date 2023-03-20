@@ -119,6 +119,9 @@ class CarInterface(CarInterfaceBase):
       
       friction = (1-speed_norm) * sigmoid1 + speed_norm * sigmoid2
     
+    if sign(friction) == sign(g_lat_accel):
+      friction = max(0.0, abs(friction) - abs(g_lat_accel)) * sign(friction)
+    
     return ff + friction + g_lat_accel * 0.5
   
   @staticmethod
@@ -174,6 +177,9 @@ class CarInterface(CarInterfaceBase):
       speed_norm = 0.5 * cos(clip(v_ego / max_speed, 0., 1.) * 3.14) + 0.5
       
       friction = (1-speed_norm) * sigmoid1 + speed_norm * sigmoid2
+    
+    if sign(friction) == sign(g_lat_accel):
+      friction = max(0.0, abs(friction) - abs(g_lat_accel)) * sign(friction)
     
     return ff + friction + g_lat_accel * 0.5
   
