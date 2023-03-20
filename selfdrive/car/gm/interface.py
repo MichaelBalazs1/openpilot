@@ -126,13 +126,13 @@ class CarInterface(CarInterfaceBase):
   
   @staticmethod
   def torque_from_lateral_accel_bolt_euv(lateral_accel_value, torque_params, lateral_accel_error, lateral_accel_deadzone, friction_compensation, v_ego, g_lat_accel, lateral_jerk_desired):
-    ANGLE_COEF = 0.08576049
-    ANGLE_COEF2 = 0.09076453
-    ANGLE_OFFSET = 0.00941979
-    SPEED_OFFSET = -1.52185040
-    SIGMOID_COEF_RIGHT = 0.56945047
+    ANGLE_COEF = 0.08910652
+    ANGLE_COEF2 = 0.15000000
+    ANGLE_OFFSET = -0.01658179
+    SPEED_OFFSET = -1.96502245
+    SIGMOID_COEF_RIGHT = 0.50294654
     SIGMOID_COEF_LEFT = 0.50000000
-    SPEED_COEF = 0.33101371
+    SPEED_COEF = 0.39170731
     ff = get_steer_feedforward_erf(lateral_accel_value, v_ego, ANGLE_COEF, ANGLE_COEF2, ANGLE_OFFSET, SPEED_OFFSET, SIGMOID_COEF_RIGHT, SIGMOID_COEF_LEFT, SPEED_COEF)
     
     # now lateral jerk component
