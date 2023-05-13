@@ -117,7 +117,7 @@ class LatControlTorque(LatControl):
         self.error_scale_factor.x = error_scale_factor
       else:
         self.error_scale_factor.update(error_scale_factor)
-      error_rate=(desired_lateral_jerk - actual_lateral_jerk) if self.use_steering_angle else 0.0
+      error_rate=((desired_lateral_jerk - actual_lateral_jerk) * self.error_scale_factor.x) if self.use_steering_angle else 0.0
       error = torque_from_setpoint - torque_from_measurement
       error *= self.error_scale_factor.x
       pid_log.error = error
@@ -148,7 +148,6 @@ class LatControlTorque(LatControl):
         friction = self.torque_from_lateral_accel(0.0, self.torque_params,
                                           desired_lateral_accel - actual_lateral_accel,
                                           lateral_accel_deadzone, friction_compensation=True)
-        friction *= self.error_scale_factor.x
         
         nnff_input = [CS.vEgo, lat_accels_filtered[0], lat_jerks_filtered[0], roll] \
                     + [self.lat_accel_deque[0]] + lat_accels_filtered[1:] \
